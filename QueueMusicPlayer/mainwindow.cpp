@@ -91,7 +91,7 @@ static void setPlayIcon(QPushButton* btn, bool playing)
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
-    setWindowTitle("Song Playlist Management");
+    setWindowTitle("Song Playlist Queue Based");
     resize(900, 600);                       // starting size only, window is resizable
     setMinimumSize(720, 520);
     savePath = QDir(QCoreApplication::applicationDirPath()).filePath("playlist.txt");

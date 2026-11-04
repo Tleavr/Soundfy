@@ -16,7 +16,7 @@ class Playlist {
     bool hasNowPlaying = false;
     int  totalSeconds = 0;            // مجموع مدد كل الأغاني (الحالية + الطابور)
 
-    static Song noSong() { return Song("No Song", "Unknown", "", 0); }
+    static Song noSong() { return Song("none", "none", "", 0); }
 
 public:
     // 1. Add Song - O(1)
