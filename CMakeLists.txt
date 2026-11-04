@@ -11,7 +11,7 @@ qt_add_executable(QueueMusicPlayer WIN32
     QueueMusicPlayer/main.cpp
     QueueMusicPlayer/mainwindow.h QueueMusicPlayer/mainwindow.cpp
     QueueMusicPlayer/audio.h QueueMusicPlayer/audio.cpp
-    QueueMusicPlayer/playlist.h QueueMusicPlayer/playlist.cpp
+    QueueMusicPlayer/playlist.h
     QueueMusicPlayer/song.h
 )
 

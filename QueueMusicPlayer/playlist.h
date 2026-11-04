@@ -1,54 +1,82 @@
-#ifndef PLAYLIST_H
-#define PLAYLIST_H
-
+#pragma once
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <queue>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "song.h"
 
-// Queue (FIFO) based playlist.
-//  - songQueue    : songs waiting to be played (front = next song)
-//  - nowPlaying   : the song that was dequeued and is playing right now
-//  - totalSeconds : running total of every song in the playlist
-//                   (nowPlaying + queue), kept up to date on every change
-//                   so the statistics are O(1) instead of O(n)
-//
-// n = number of songs waiting in the queue
 class Playlist {
-private:
-    std::queue<Song> songQueue;
+    std::queue<Song> songQueue;        // الطابور: المقدمة = الأغنية التالية
     Song nowPlaying;
     bool hasNowPlaying = false;
-    int  totalSeconds = 0;
+    int  totalSeconds = 0;            // مجموع مدد كل الأغاني (الحالية + الطابور)
+
+    static Song noSong() { return Song("No Song", "Unknown", "", 0); }
 
 public:
-    // 1. Add Song      : enqueue at the end                         O(1)
-    void addSong(const Song& song);
-    // 2. Play Next     : dequeue the front song and play it         O(1)
-    //                    returns false (and nothing is playing) if the queue is empty
-    bool nextSong();
-    // 3. View Next     : peek at the front without removing it      O(1)
-    Song peekNextSong() const;
-    bool hasNextSong() const;
+    // 1. Add Song - O(1)
+    void addSong(const Song& s) { songQueue.push(s); totalSeconds += s.durationInSeconds; }
 
-    Song getCurrentSong() const;                                  // O(1)
-    bool hasCurrentSong() const;                                  // O(1)
+    // 2. Play Next - O(1): الأغنية الحالية تطلع من المجموع، والتالية تدخل
+    bool nextSong() {
+        if (hasNowPlaying) totalSeconds -= nowPlaying.durationInSeconds;
+        hasNowPlaying = !songQueue.empty();
+        if (hasNowPlaying) { nowPlaying = songQueue.front(); songQueue.pop(); }
+        return hasNowPlaying;
+    }
 
-    // 4. Display       : playing song first, then the queue         O(n)
-    std::vector<Song> getAllSongs() const;
+    // 3. View Next - O(1)
+    Song peekNextSong() const { return songQueue.empty() ? noSong() : songQueue.front(); }
+    bool hasNextSong() const { return !songQueue.empty(); }
+    Song getCurrentSong() const { return hasNowPlaying ? nowPlaying : noSong(); }
+    bool hasCurrentSong() const { return hasNowPlaying; }
 
-    // 5. Clear                                                      O(n)
-    void clearPlaylist();
+    // 4. Display - O(n): الأغنية الحالية أولاً ثم الطابور بالترتيب
+    std::vector<Song> getAllSongs() const {
+        std::vector<Song> list;
+        if (hasNowPlaying) list.push_back(nowPlaying);
+        for (auto copy = songQueue; !copy.empty(); copy.pop()) list.push_back(copy.front());
+        return list;
+    }
 
-    // 6. Statistics                                                 O(1)
-    size_t getSongCount() const;
-    int getTotalDurationSeconds() const;
-    std::string getFormattedTotalDuration() const;   // HH:MM:SS
-    bool isEmpty() const;
+    // 5. Clear - O(n)
+    void clearPlaylist() { songQueue = std::queue<Song>(); hasNowPlaying = false; totalSeconds = 0; }
 
-    // Saving / loading (one song per line in a plain text file)     O(n)
-    bool saveToFile(const std::string& filePath) const;
-    void loadFromFile(const std::string& filePath);  // skips songs whose file no longer exists
+    // 6. Statistics - O(1)
+    size_t getSongCount() const { return songQueue.size() + hasNowPlaying; }
+    int getTotalDurationSeconds() const { return totalSeconds; }
+    bool isEmpty() const { return getSongCount() == 0; }
+    std::string getFormattedTotalDuration() const {
+        char b[32];
+        std::snprintf(b, sizeof b, "%02d:%02d:%02d",
+            totalSeconds / 3600, totalSeconds % 3600 / 60, totalSeconds % 60);
+        return b;
+    }
+
+    // Save / Load - سطر لكل أغنية: path TAB title TAB artist TAB duration
+    bool saveToFile(const std::string& path) const {
+        std::ofstream out(path, std::ios::trunc);
+        if (!out) return false;
+        for (const Song& s : getAllSongs())
+            out << s.filePath << '\t' << s.title << '\t' << s.artist << '\t' << s.durationInSeconds << '\n';
+        return true;
+    }
+
+    void loadFromFile(const std::string& path) {
+        std::ifstream in(path);
+        if (!in) return;                              // أول تشغيل ما فيه ملف
+        clearPlaylist();
+        for (std::string line; std::getline(in, line); ) {
+            std::string f[4];
+            std::stringstream ss(line);
+            for (auto& field : f) std::getline(ss, field, '\t');
+            if (f[3].empty() || !std::filesystem::exists(f[0])) continue;   // سطر تالف أو ملف محذوف
+            addSong(Song(f[1], f[2], f[0], std::max(0, std::atoi(f[3].c_str()))));
+        }
+    }
 };
-
-#endif // PLAYLIST_H
